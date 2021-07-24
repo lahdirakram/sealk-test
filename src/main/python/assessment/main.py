@@ -2,6 +2,7 @@ import sys
 import click
 import logging
 from os import path, pardir
+import threading, queue, csv
 
 # MultiProcessing imports
 import threading, multiprocessing
@@ -25,7 +26,7 @@ resultQueue = queue.Queue()
 @click.command()
 @click.option(
     "--filename",
-    default="/tmp/nasdaq-company-list.csv",
+    default="nasdaq-company-list.csv",
     help="Input CSV file name"
 )
 @click.option(
@@ -37,6 +38,7 @@ resultQueue = queue.Queue()
     "--threads",
     default= cpu_count,
     help="Number of threads to use."
+
 )
 def main(filename: str, threads: int, top=10) -> None:
     """
@@ -44,6 +46,7 @@ def main(filename: str, threads: int, top=10) -> None:
         filename (str): Input CSV file name
         top (int, optional): Number of companies Symbols to print at the end. Defaults to 10.
     """
+
     # loading data from csv file
     data = csv.DictReader(open(filename))
 
@@ -77,6 +80,7 @@ def main(filename: str, threads: int, top=10) -> None:
         key=lambda result: result["score"], 
         reverse=True
         )
+
     
     # keeping top results only
     topResults = sortedResults[:top]
