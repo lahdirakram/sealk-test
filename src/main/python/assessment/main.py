@@ -4,12 +4,21 @@ import logging
 from os import path, pardir
 import threading, queue, csv
 
+# MultiProcessing imports
+import threading, multiprocessing
+import queue
+import csv
+
 # Local imports
 sys.path.append(path.abspath(path.join(path.dirname(__file__), pardir)))
 from common.dummy_ai import getCompanyAttractiveness
 
 # Logger definition
 logging.basicConfig(format="%(message)s", level=logging.INFO)
+
+# Queues definition
+waitingQueue = queue.Queue()
+resultQueue = queue.Queue()
 
 @click.command()
 @click.option(
@@ -22,11 +31,11 @@ logging.basicConfig(format="%(message)s", level=logging.INFO)
     default=50,
     help="Number of companies Symbols to print at the end"
 )
-
 @click.option(
     "--threads",
-    default=8,
-    help="Number of threads to use"
+    default=multiprocessing.cpu_count(),
+    help="Number of threads to use."
+
 )
 def main(filename: str, threads: int, top=10) -> None:
     """
@@ -34,43 +43,63 @@ def main(filename: str, threads: int, top=10) -> None:
         filename (str): Input CSV file name
         top (int, optional): Number of companies Symbols to print at the end. Defaults to 10.
     """
-    fileContent = list(csv.DictReader(open(filename)))
 
-    for row in fileContent:
+    # loading data from csv file
+    data = list(csv.DictReader(open(filename)))
+
+    # puting data in waitingQueue to be processed
+    for row in data:
         waitingQueue.put(row["Symbol"])
 
-    threadsList=[]
-    for _ in range(threads):
-        threadsList.append(threading.Thread(target=computingRunner))
-    for th in threadsList:
-        th.start()
-    for th in threadsList:
-        th.join()
+    # creating threads
+    threadList=[]
+    for index in range(threads):
+        thread = threading.Thread(
+            target=runner, 
+            args=(
+                index,
+                getCompanyAttractiveness,
+                )
+            )
+        threadList.append(thread)
 
+    # starting threads
+    for thread in threadList:
+        thread.start()
+
+    # waiting for threads to finish processing data
+    for thread in threadList:
+        thread.join()
+    
+    # sorting data processing result by the score of Company Attractiveness in descending order
     sortedResults = sorted(
         resultQueue.queue, 
         key=lambda result: result["score"], 
         reverse=True
         )
 
-    toPrint = ", ".join(
-        [result["id"] for result in sortedResults[:top]]
-        )
-
-    logging.info(toPrint)
-
-def computingRunner():
+    
+    # keeping top results only
+    topResults = sortedResults[:top]
+    
+    logging.info(topResults)
+    
+def runner(id, task):
 
     global waitingQueue, resultQueue
 
+    print(f"runner {id} starting now")
+
     while not waitingQueue.empty():
-        symbole = waitingQueue.get()
-        ca = getCompanyAttractiveness(symbole) 
-        resultQueue.put(ca)
+        # pickup data
+        data = waitingQueue.get() 
+        # run task on data
+        result = task(data) 
+        # store task result
+        resultQueue.put(result) 
+    
+    print(f"runner {id} finished processing")
 
 
 if __name__ == "__main__":
-
-    waitingQueue = queue.Queue()
-    resultQueue = queue.Queue()
     main()
