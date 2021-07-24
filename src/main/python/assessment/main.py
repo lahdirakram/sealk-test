@@ -4,8 +4,7 @@ import logging
 from os import path, pardir
 
 # MultiProcessing imports
-import threading, multiprocessing
-import queue
+import multiprocessing
 import csv
 
 # Local imports
@@ -15,10 +14,6 @@ from common.dummy_ai import getCompanyAttractiveness
 # Logger definition
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 
-# Queues definition
-waitingQueue = queue.Queue()
-resultQueue = queue.Queue()
-
 @click.command()
 @click.option(
     "--filename",
@@ -27,7 +22,7 @@ resultQueue = queue.Queue()
 )
 @click.option(
     "--top",
-    default=50,
+    default=10,
     help="Number of companies Symbols to print at the end"
 )
 @click.option(
@@ -42,35 +37,17 @@ def main(filename: str, threads: int, top=10) -> None:
         top (int, optional): Number of companies Symbols to print at the end. Defaults to 10.
     """
     # loading data from csv file
-    data = list(csv.DictReader(open(filename)))
+    data = [row['Symbol'] for row in csv.DictReader(open(filename))]
 
-    # puting data in waitingQueue to be processed
-    for row in data:
-        waitingQueue.put(row["Symbol"])
+    # creating a pool of processes
+    pool = multiprocessing.Pool(processes=threads)
 
-    # creating threads
-    threadList=[]
-    for index in range(threads):
-        thread = threading.Thread(
-            target=runner, 
-            args=(
-                index,
-                getCompanyAttractiveness,
-                )
-            )
-        threadList.append(thread)
-
-    # starting threads
-    for thread in threadList:
-        thread.start()
-
-    # waiting for threads to finish processing data
-    for thread in threadList:
-        thread.join()
+    # launching multiprocessing on data with paralel threads  
+    results = pool.map(getCompanyAttractiveness, data)
     
     # sorting data processing result by the score of Company Attractiveness in descending order
     sortedResults = sorted(
-        resultQueue.queue, 
+        results, 
         key=lambda result: result["score"], 
         reverse=True
         )
@@ -80,22 +57,5 @@ def main(filename: str, threads: int, top=10) -> None:
     
     logging.info(topResults)
     
-def runner(id, task):
-
-    global waitingQueue, resultQueue
-
-    print(f"runner {id} starting now")
-
-    while not waitingQueue.empty():
-        # pickup data
-        data = waitingQueue.get() 
-        # run task on data
-        result = task(data) 
-        # store task result
-        resultQueue.put(result) 
-    
-    print(f"runner {id} finished processing")
-
-
 if __name__ == "__main__":
     main()
