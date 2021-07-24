@@ -15,6 +15,9 @@ from common.dummy_ai import getCompanyAttractiveness
 # Logger definition
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 
+# Getting cpu count
+cpu_count = multiprocessing.cpu_count()
+
 # Queues definition
 waitingQueue = queue.Queue()
 resultQueue = queue.Queue()
@@ -32,7 +35,7 @@ resultQueue = queue.Queue()
 )
 @click.option(
     "--threads",
-    default=multiprocessing.cpu_count(),
+    default= cpu_count,
     help="Number of threads to use."
 )
 def main(filename: str, threads: int, top=10) -> None:
@@ -42,7 +45,7 @@ def main(filename: str, threads: int, top=10) -> None:
         top (int, optional): Number of companies Symbols to print at the end. Defaults to 10.
     """
     # loading data from csv file
-    data = list(csv.DictReader(open(filename)))
+    data = csv.DictReader(open(filename))
 
     # puting data in waitingQueue to be processed
     for row in data:
@@ -84,7 +87,7 @@ def runner(id, task):
 
     global waitingQueue, resultQueue
 
-    print(f"runner {id} starting now")
+    logging.info(f"runner {id} starting now")
 
     while not waitingQueue.empty():
         # pickup data
@@ -94,7 +97,7 @@ def runner(id, task):
         # store task result
         resultQueue.put(result) 
     
-    print(f"runner {id} finished processing")
+    logging.info(f"runner {id} finished processing")
 
 
 if __name__ == "__main__":
