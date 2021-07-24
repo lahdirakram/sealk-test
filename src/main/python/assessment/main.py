@@ -15,6 +15,10 @@ from common.dummy_ai import getCompanyAttractiveness
 # Logger definition
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 
+# Queues definition
+waitingQueue = queue.Queue()
+resultQueue = queue.Queue()
+
 @click.command()
 @click.option(
     "--filename",
@@ -94,6 +98,4 @@ def runner(id, task):
 
 
 if __name__ == "__main__":
-    waitingQueue = queue.Queue()
-    resultQueue = queue.Queue()
     main()
